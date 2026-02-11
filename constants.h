@@ -1,5 +1,12 @@
 #pragma once
 
+// ChessEngine - GNU General Public License v3.0 or later
+// Copyright (C) 2026  YOUR NAME
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
 // Bitboard constants for each square (LSB = A1, MSB = H8)
 // No trailing semicolons so they can be used in expressions.
 
