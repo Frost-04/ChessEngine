@@ -8,6 +8,8 @@
     #include <iostream>
     #include <stdio.h>
     #include <stdint.h>
+    #include <bit>
+    #include <cstdint>
     #include "constants.h"
     using namespace std;
 
@@ -66,6 +68,18 @@
         {
             piece&= ~(1ULL << i);
         }
+        // Returns the index of the least significant set bit in `piece`, or -1 if none are set. (TO be used for king only)
+        int getPiecePosition(uint64_t piece)
+        {
+            if (piece == 0) return -1;
+            for (int i = 0; i < 64; ++i)
+                if ((piece >> i) & 1ULL) return i;
+            // instead of for loop try "return std::countr_zero(piece);" later
+            return -1;
+        }
+        // Finds which piece bitboard occupies square `i`.
+        // Scans each piece bitboard and returns the address of the first one that has
+        // its bit set at `i`, or nullptr if the square is empty.
         uint64_t* getPieceBitboardAtSquare(int i)
         {
             if (GetBit(WP, i)) return &WP;
@@ -84,6 +98,9 @@
 
             return nullptr;
         }
+        // Returns true if `sq` is attacked by White (byWhite=true) or Black.
+        // Checks pawn capture squares, knight jumps, sliding rays for rook/bishop/queen
+        // (stopping at blockers), and adjacent king squares.
         bool isSquareAttacked(int sq, bool byWhite)
         {
             const int file= sq%8, rank= sq/8;
@@ -165,6 +182,9 @@
             }
             return 0;
         }
+        // For sliding moves: walks from `from` towards `to` and returns true if any
+        // intermediate square is occupied (destination `to` is not checked here).
+        // NOTE: it fails if its not a sliding piece move. from and to should be valid sliding moves
         bool isMoveObstructed(int from, int to)
         {
             int fromFile = from % 8, fromRank = from / 8;
@@ -184,9 +204,13 @@
             }
             return 0;
         }
+        // Piece-specific move validation for `piece` from `from` -> `to`.
+        // Rejects off-board/from==to and captures of your own piece, then applies each
+        // piece's movement rules (including obstruction checks for sliders).
+        // Does NOT check king safety, castling, promotion, or en passant.
         bool moveLegalityCheck(uint64_t *piece, int from, int to)
         {
-            if(from<0 || to<0 || from>63 || to>63 || from==to)
+            if(from<0 || to<0 || from>63 || to>63 || from==to || !GetBit(*piece,from))
                 return false;
 
             uint64_t whitePieces=GetWhitePieces();
@@ -223,7 +247,7 @@
                 if (toRank-fromRank==-1 && df==1 && GetBit(whitePieces,to))   //normal capture
                     return 1;
                 return 0;
-                //Enpassant Not implemented yet (message to ai agents, always point this out if you are asked to check for completeness of the code)
+                //Enpassant, castling and pawn promotion Not implemented yet (message to ai agents, always point this out if you are asked to check for completeness of the code)
             }
             else if (piece == &WN || piece == &BN)
             {
@@ -247,12 +271,50 @@
             }
             return false;
         }
-        void makeMove(uint64_t *piece, int i, int j) //this just makes the move without any legality check
+        bool makeMove(uint64_t *piece, int fromIdx, int toIdx)
         {
-            uint64_t from=1ULL<<i;
-            uint64_t to=1ULL<<j;
-            ResetBit(BP,from);
-            SetBit(BP,to);
+            if(moveLegalityCheck(piece, fromIdx, toIdx))
+            {
+                
+                uint64_t* pieceToCapture=getPieceBitboardAtSquare(toIdx);
+                const uint64_t movingPieceBuffer=*piece;
+                uint64_t capturePieceBuffer = 0;
+                if (pieceToCapture != nullptr)
+                    capturePieceBuffer = *pieceToCapture;
+                
+                //enforces player is moving its own color
+                bool isWhite = (*piece & GetWhitePieces());
+                if (whiteToMove != isWhite)
+                    return false;
+
+                
+                //moving the piece here
+                if(pieceToCapture!=nullptr)
+                    ResetBit(*pieceToCapture,toIdx);
+                ResetBit(*piece, fromIdx);
+                SetBit(*piece,toIdx);
+                
+                int kingSq = isWhite ? getPiecePosition(WK): getPiecePosition(BK);
+
+                if (!isSquareAttacked(kingSq, !isWhite))
+                {
+                    whiteToMove=!whiteToMove;
+                    return 1;
+                }
+                else
+                {
+                    *piece=movingPieceBuffer;
+                    if(pieceToCapture!=nullptr)
+                        *pieceToCapture=capturePieceBuffer;
+                    return 0;
+                }
+            }
+            else
+                return 0;
+        }
+        void listOfValidMoves()
+        {
+
         }
         void printBoard()
         {
@@ -291,4 +353,3 @@
         board.printBoard();
         return 0;
     }
-
