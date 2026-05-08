@@ -1,0 +1,320 @@
+#include "movegenerator.h"
+#include "board.h"
+#include "constants.h"
+
+bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
+    board.validMoves.clear();
+    board.validMoves.reserve(256);
+
+    //getting piece identity
+    Piece king = (board.whiteToMove) ? Piece::WK : Piece::BK;
+    Piece pawn = (board.whiteToMove) ? Piece::WP : Piece::BP;
+    Piece knight = (board.whiteToMove) ? Piece::WN : Piece::BN;
+    Piece bishop = (board.whiteToMove) ? Piece::WB : Piece::BB;
+    Piece rook = (board.whiteToMove) ? Piece::WR : Piece::BR;
+    Piece queen = (board.whiteToMove) ? Piece::WQ : Piece::BQ;
+
+    //caching BB
+    const U64& kingBB = board.getPieceBB(king);
+    const U64& pawnBB = board.getPieceBB(pawn);
+    const U64& knightBB = board.getPieceBB(knight);
+    const U64& bishopBB = board.getPieceBB(bishop);
+    const U64& rookBB = board.getPieceBB(rook);
+    const U64& queenBB = board.getPieceBB(queen);
+
+    //caching positions
+    std::vector<int> pawnPositions = board.getPieceAllPosition(pawn);
+    std::vector<int> knightPositions = board.getPieceAllPosition(knight);
+    std::vector<int> queenPositions = board.getPieceAllPosition(queen);
+    std::vector<int> rookPositions = board.getPieceAllPosition(rook);
+    std::vector<int> bishopPositions = board.getPieceAllPosition(bishop);
+
+    //reusable Move struct object
+    Move move;
+
+    /*
+    King
+    */
+    move.movingPiece = king;
+    move.from = board.getPiecePosition(kingBB);
+    move.promotionPiece = Piece::None;
+    for(const auto &[dx, dy] : kingOffsets) {
+        move.flag = 0;
+        int newRank = (move.from/8) + dx;
+        int newFile = (move.from%8) + dy;
+        if(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7)
+                move.to = move.from + dx * 8 + dy;
+        else
+            continue;
+        move.capturedPiece = board.pieceAt[move.to];
+        if(move.capturedPiece != Piece::None)
+            board.setFlag(move.flag, CAPTURE);
+        if(board.makeMove(move)) {
+            board.undoMove();
+            if(justCheck) return true;
+            board.validMoves.push_back(move);
+        }
+    }
+
+    //CASTLING King Side
+    move.flag = 0;
+    move.to = board.whiteToMove ? IDX_G1 : IDX_G8;
+    move.capturedPiece=Piece::None;
+    board.setFlag(move.flag, CASTLE_KING);
+    if(board.makeMove(move)) {
+        board.undoMove();
+        if(justCheck) return true;
+        board.validMoves.push_back(move);
+    }
+
+    //CASTLING Queen Side
+    move.flag = 0;
+    move.to = board.whiteToMove ? IDX_C1 : IDX_C8;
+    move.capturedPiece=Piece::None;
+    board.setFlag(move.flag, CASTLE_QUEEN);
+    if(board.makeMove(move)) {
+        board.undoMove();
+        if(justCheck) return true;
+        board.validMoves.push_back(move);
+    }
+
+    /*
+    Pawn
+    */
+    move.movingPiece = pawn;
+    int direction = board.whiteToMove ? 1 : -1;
+
+    for(auto currPosition : pawnPositions) {
+        move.from = currPosition;
+
+        // Single forward
+        move.to = move.from + 8 * direction;
+        move.flag = 0;
+        move.promotionPiece = Piece::None;
+        move.capturedPiece = Piece::None;
+        if((move.to >= IDX_A8 && move.to <= IDX_H8) || (move.to >= IDX_A1 && move.to <= IDX_H1))
+        {
+            board.setFlag(move.flag, PROMOTION);
+            for(Piece p : {knight, rook, bishop, queen}) {
+                move.promotionPiece = p;
+                if(board.makeMove(move)) {
+                    board.undoMove();
+                    if(justCheck) return true;
+                    board.validMoves.push_back(move);
+                }
+            }
+        }
+        else if(board.makeMove(move)) {
+            board.undoMove();
+            if(justCheck) return true;
+            board.validMoves.push_back(move);
+        }
+
+        // Double push
+        move.capturedPiece=Piece::None;
+        if((board.whiteToMove && move.from/8==1) || (!board.whiteToMove && move.from/8==6))
+        {
+            move.to = move.from + 16 * direction;
+            move.flag = 0;
+            board.setFlag(move.flag, DOUBLE_PAWN);
+            move.promotionPiece = Piece::None;
+            move.capturedPiece = Piece::None;
+            if(board.makeMove(move)) {
+                board.undoMove();
+                if(justCheck) return true;
+                board.validMoves.push_back(move);
+            }
+        }
+
+        // Captures (left and right)
+        for(int xDirection : {1, -1}) {
+            int newRank = (move.from/8) + 1*direction;
+            int newFile = (move.from%8) + xDirection;
+            if(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7)
+                move.to = move.from + direction*8 + xDirection;
+            else
+                continue;
+            move.flag = 0;
+            move.promotionPiece = Piece::None;
+            move.capturedPiece = board.pieceAt[move.to];
+            if(move.capturedPiece != Piece::None) {
+                board.setFlag(move.flag, CAPTURE);
+                if(board.makeMove(move)) {
+                    board.undoMove();
+                    if(justCheck) return true;
+                    board.validMoves.push_back(move);
+                }
+            }
+            if((move.to >= IDX_A8 && move.to <= IDX_H8) || (move.to >= IDX_A1 && move.to <= IDX_H1))
+            {
+                board.setFlag(move.flag, PROMOTION);
+                for(Piece p : {knight, rook, bishop, queen}) {
+                    move.promotionPiece = p;
+                    if(board.makeMove(move)) {
+                        board.undoMove();
+                        if(justCheck) return true;
+                        board.validMoves.push_back(move);
+                    }
+                }
+            }
+        }
+
+        //En passant
+        if(board.enPassantSquare!=NO_SQUARE)
+        {
+            move.flag=0;
+            board.setFlag(move.flag, EN_PASSANT);
+            for(auto xDirection : {1, -1}) 
+            {
+                int newRank = (move.from/8) + 1*direction;
+                int newFile = (move.from%8) + xDirection;
+                if(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7)
+                    move.to = move.from + direction*8 + xDirection;
+                else
+                    continue;
+                move.capturedPiece=board.whiteToMove?Piece::BP : Piece::WP;
+                if(board.makeMove(move)) {
+                    board.undoMove();
+                    if(justCheck) return true;
+                    board.validMoves.push_back(move);
+                }
+            }
+        }
+    }
+
+    /*
+    Knight
+    */
+    move.movingPiece = knight;
+    move.flag=0;
+    move.promotionPiece = Piece::None;
+    for(auto currPosition : knightPositions) {
+        move.from = currPosition;
+        int rank = move.from / 8;
+        int file = move.from % 8;
+        for(const auto &[dx, dy] : knightOffsets) {
+            move.flag = 0;
+            int newRank = rank + dx;
+            int newFile = file + dy;
+            if(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7)
+                move.to = move.from + dx * 8 + dy;
+            else
+                continue;
+            move.capturedPiece = board.pieceAt[move.to];
+            if(move.capturedPiece != Piece::None)
+                board.setFlag(move.flag, CAPTURE);
+            if(board.makeMove(move)) {
+                board.undoMove();
+                if(justCheck) return true;
+                board.validMoves.push_back(move);
+            }
+        }
+    }
+
+    /*
+    Bishop
+    */
+    move.movingPiece = bishop;
+    move.flag=0;
+    move.promotionPiece = Piece::None;
+    for(auto currPosition : bishopPositions) {
+        move.from = currPosition;
+        int rank = move.from / 8;
+        int file = move.from % 8;
+        for(const auto &[dx, dy] : bishopOffsets) {
+            int newRank = rank + dx;
+            int newFile = file + dy;
+            while(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7) {
+                move.flag = 0;
+                move.to = newRank * 8 + newFile;
+                move.capturedPiece = board.pieceAt[move.to];
+                if(move.capturedPiece != Piece::None)
+                    board.setFlag(move.flag, CAPTURE);
+                if(board.makeMove(move)) {
+                    board.undoMove();
+                    if(justCheck) return true;
+                    board.validMoves.push_back(move);
+                }
+                //stop sliding only when some piece is encounterd in the way
+                if(move.capturedPiece != Piece::None)
+                    break;
+                newRank += dx;
+                newFile += dy;
+            }
+        }
+    }
+
+    /*
+    Rook
+    */
+    move.movingPiece = rook;
+    move.flag=0;
+    move.promotionPiece = Piece::None;
+    for(auto currPosition : rookPositions) {
+        move.from = currPosition;
+        int rank = move.from / 8;
+        int file = move.from % 8;
+        for(const auto &[dx, dy] : rookOffsets) {
+            int newRank = rank + dx;
+            int newFile = file + dy;
+            while(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7) {
+                move.flag = 0;
+                move.to = newRank * 8 + newFile;
+                move.capturedPiece = board.pieceAt[move.to];
+                if(move.capturedPiece != Piece::None)
+                    board.setFlag(move.flag, CAPTURE);
+                if(board.makeMove(move)) {
+                    board.undoMove();
+                    if(justCheck) return true;
+                    board.validMoves.push_back(move);
+                }
+                //stop sliding only when some piece is encounterd in the way
+                if(move.capturedPiece != Piece::None)
+                    break;
+                newRank += dx;
+                newFile += dy;
+            }
+        }
+    }
+
+    /*
+    Queen
+    */
+    move.movingPiece = queen;
+    move.flag=0;
+    move.promotionPiece = Piece::None;
+    for(auto currPosition : queenPositions) {
+        move.from = currPosition;
+        int rank = move.from / 8;
+        int file = move.from % 8;
+        for(const auto &[dx, dy] : queenOffsets) {
+            int newRank = rank + dx;
+            int newFile = file + dy;
+            while(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7) {
+                move.flag = 0;
+                move.to = newRank * 8 + newFile;
+                move.capturedPiece = board.pieceAt[move.to];
+                if(move.capturedPiece != Piece::None)
+                    board.setFlag(move.flag, CAPTURE);
+                if(board.makeMove(move)) {
+                    board.undoMove();
+                    if(justCheck) return true;
+                    board.validMoves.push_back(move);
+                }
+                //stop sliding only when some piece is encounterd in the way
+                if(move.capturedPiece != Piece::None)
+                    break;
+                newRank += dx;
+                newFile += dy;
+            }
+        }
+    }
+
+    if(board.validMoves.empty())
+        return false;
+    return true;
+}   
+
+bool MoveGenerator::hasValidMoves(Board& board) {
+    return nextValidMoves(board, true);
+}
