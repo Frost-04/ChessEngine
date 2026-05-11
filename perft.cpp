@@ -5,16 +5,16 @@ long long Perft::run(Board &board,int depth)
 {
     if(depth==0)
         return 1;
-    int nodes=0;
+    long long nodes=0;
     MoveGenerator::nextValidMoves(board);
-    if(depth == 1)
-        return (long long)board.validMoves.size();
     std::vector<Move> moves=board.validMoves;
     for(auto &move: moves)
     {
-        board.makeMove(move);
-        nodes+=run(board,depth-1);
-        board.undoMove();
+        if(board.makeMove(move))    //only if move succeeds
+        {
+            nodes+=run(board,depth-1);
+            board.undoMove();
+        }
     }
     return nodes;
 }

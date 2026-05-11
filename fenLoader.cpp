@@ -213,6 +213,8 @@ void FenLoader::applyToBoard(Board& board, const ParsedFen& parsed) {
     board.NULL_PIECE = 0;
     board.enPassantSquare = parsed.enPassantSquare;
 
+    board.initializePieceTable();
+
     board.whiteToMove = parsed.whiteToMove;
     board.whiteCastleKingSide = parsed.whiteCastleKingSide;
     board.whiteCastleQueenSide = parsed.whiteCastleQueenSide;

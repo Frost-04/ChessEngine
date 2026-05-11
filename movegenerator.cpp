@@ -22,12 +22,20 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
     const U64& rookBB = board.getPieceBB(rook);
     const U64& queenBB = board.getPieceBB(queen);
 
+    U64 allPieces=board.GetAllPieces();
+    U64 friendlyPiece=(board.whiteToMove)?board.GetWhitePieces():board.GetBlackPieces();
+    U64 opponentPiece=(board.whiteToMove)?board.GetBlackPieces():board.GetWhitePieces();
+
     //caching positions
     std::vector<int> pawnPositions = board.getPieceAllPosition(pawn);
     std::vector<int> knightPositions = board.getPieceAllPosition(knight);
     std::vector<int> queenPositions = board.getPieceAllPosition(queen);
     std::vector<int> rookPositions = board.getPieceAllPosition(rook);
     std::vector<int> bishopPositions = board.getPieceAllPosition(bishop);
+
+    //caching castle rules
+    bool castleKing=(board.whiteToMove)?board.whiteCastleKingSide:board.blackCastleKingSide;
+    bool castleQueen=(board.whiteToMove)?board.whiteCastleQueenSide:board.blackCastleQueenSide;
 
     //reusable Move struct object
     Move move;
@@ -46,36 +54,47 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
                 move.to = move.from + dx * 8 + dy;
         else
             continue;
+        if(board.GetBit(friendlyPiece,move.to))
+            continue;
+            
         move.capturedPiece = board.pieceAt[move.to];
         if(move.capturedPiece != Piece::None)
             board.setFlag(move.flag, CAPTURE);
-        if(board.makeMove(move)) {
-            board.undoMove();
+        if(justCheck) return true;
+        board.validMoves.push_back(move);
+    }
+
+    //CASTLING King Side
+    if(castleKing)  //might need to put is square attacked here for the middle parts and also if middle part is empty
+    {
+
+        //checking castle rules and squares
+        U8 intermediateSquare=board.whiteToMove? IDX_F1 : IDX_F8;
+        move.flag = 0;
+        move.to = board.whiteToMove ? IDX_G1 : IDX_G8;
+        if(!board.GetBit(allPieces,intermediateSquare) && !board.GetBit(allPieces,move.to) && !board.isSquareAttacked(move.from, !board.whiteToMove) && !board.isSquareAttacked(intermediateSquare,!board.whiteToMove) && !board.isSquareAttacked(move.to,!board.whiteToMove))
+        {
+            move.capturedPiece=Piece::None;
+            board.setFlag(move.flag, CASTLE_KING);
             if(justCheck) return true;
             board.validMoves.push_back(move);
         }
     }
 
-    //CASTLING King Side
-    move.flag = 0;
-    move.to = board.whiteToMove ? IDX_G1 : IDX_G8;
-    move.capturedPiece=Piece::None;
-    board.setFlag(move.flag, CASTLE_KING);
-    if(board.makeMove(move)) {
-        board.undoMove();
-        if(justCheck) return true;
-        board.validMoves.push_back(move);
-    }
-
     //CASTLING Queen Side
-    move.flag = 0;
-    move.to = board.whiteToMove ? IDX_C1 : IDX_C8;
-    move.capturedPiece=Piece::None;
-    board.setFlag(move.flag, CASTLE_QUEEN);
-    if(board.makeMove(move)) {
-        board.undoMove();
-        if(justCheck) return true;
-        board.validMoves.push_back(move);
+    if(castleQueen) //might need to put is square attacked here for the middle parts and also if middle part is empty
+    {
+        U8 intermediateSquare=board.whiteToMove? IDX_D1 : IDX_D8;
+        U8 rookIntermediateSquare=board.whiteToMove? IDX_B1:IDX_B8;
+        move.flag = 0;
+        move.to = board.whiteToMove ? IDX_C1 : IDX_C8;
+        if(!board.GetBit(allPieces,intermediateSquare) && !board.GetBit(allPieces,move.to) && !board.GetBit(allPieces,rookIntermediateSquare) && !board.isSquareAttacked(move.from, !board.whiteToMove) &&!board.isSquareAttacked(intermediateSquare,!board.whiteToMove) && !board.isSquareAttacked(move.to,!board.whiteToMove))
+        {
+            move.capturedPiece=Piece::None;
+            board.setFlag(move.flag, CASTLE_QUEEN);
+            if(justCheck) return true;
+            board.validMoves.push_back(move);
+        }
     }
 
     /*
@@ -84,30 +103,31 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
     move.movingPiece = pawn;
     int direction = board.whiteToMove ? 1 : -1;
 
-    for(auto currPosition : pawnPositions) {
+    for(auto const &currPosition : pawnPositions) {
         move.from = currPosition;
 
         // Single forward
         move.to = move.from + 8 * direction;
-        move.flag = 0;
-        move.promotionPiece = Piece::None;
-        move.capturedPiece = Piece::None;
-        if((move.to >= IDX_A8 && move.to <= IDX_H8) || (move.to >= IDX_A1 && move.to <= IDX_H1))
+        if(!board.GetBit(allPieces,move.to))
         {
-            board.setFlag(move.flag, PROMOTION);
-            for(Piece p : {knight, rook, bishop, queen}) {
-                move.promotionPiece = p;
-                if(board.makeMove(move)) {
-                    board.undoMove();
+            move.flag = 0;
+            move.promotionPiece = Piece::None;
+            move.capturedPiece = Piece::None;
+            if((move.to >= IDX_A8 && move.to <= IDX_H8) || (move.to >= IDX_A1 && move.to <= IDX_H1))
+            {
+                board.setFlag(move.flag, PROMOTION);
+                for(Piece p : {knight, rook, bishop, queen}) {
+                    move.promotionPiece = p;
                     if(justCheck) return true;
                     board.validMoves.push_back(move);
                 }
             }
-        }
-        else if(board.makeMove(move)) {
-            board.undoMove();
-            if(justCheck) return true;
-            board.validMoves.push_back(move);
+        
+            else
+            {
+                if(justCheck) return true;
+                board.validMoves.push_back(move);
+            }
         }
 
         // Double push
@@ -115,12 +135,12 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
         if((board.whiteToMove && move.from/8==1) || (!board.whiteToMove && move.from/8==6))
         {
             move.to = move.from + 16 * direction;
-            move.flag = 0;
-            board.setFlag(move.flag, DOUBLE_PAWN);
-            move.promotionPiece = Piece::None;
-            move.capturedPiece = Piece::None;
-            if(board.makeMove(move)) {
-                board.undoMove();
+            if(!board.GetBit(allPieces,move.to) && !board.GetBit(allPieces,move.from+8*direction))
+            {
+                move.flag = 0;
+                board.setFlag(move.flag, DOUBLE_PAWN);
+                move.promotionPiece = Piece::None;
+                move.capturedPiece = Piece::None;
                 if(justCheck) return true;
                 board.validMoves.push_back(move);
             }
@@ -134,27 +154,26 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
                 move.to = move.from + direction*8 + xDirection;
             else
                 continue;
-            move.flag = 0;
-            move.promotionPiece = Piece::None;
-            move.capturedPiece = board.pieceAt[move.to];
-            if(move.capturedPiece != Piece::None) {
-                board.setFlag(move.flag, CAPTURE);
-                if(board.makeMove(move)) {
-                    board.undoMove();
-                    if(justCheck) return true;
-                    board.validMoves.push_back(move);
-                }
-            }
-            if((move.to >= IDX_A8 && move.to <= IDX_H8) || (move.to >= IDX_A1 && move.to <= IDX_H1))
+            if(!board.GetBit(friendlyPiece,move.to) && board.pieceAt[move.to]!=Piece::None)
             {
-                board.setFlag(move.flag, PROMOTION);
-                for(Piece p : {knight, rook, bishop, queen}) {
-                    move.promotionPiece = p;
-                    if(board.makeMove(move)) {
-                        board.undoMove();
+                move.flag = 0;
+                move.promotionPiece = Piece::None;
+                move.capturedPiece = board.pieceAt[move.to];
+                board.setFlag(move.flag, CAPTURE);
+
+                if((move.to >= IDX_A8 && move.to <= IDX_H8) || (move.to >= IDX_A1 && move.to <= IDX_H1))
+                {
+                    board.setFlag(move.flag, PROMOTION);
+                    for(Piece p : {knight, rook, bishop, queen}) {
+                        move.promotionPiece = p;
                         if(justCheck) return true;
                         board.validMoves.push_back(move);
                     }
+                }
+                else
+                {
+                    if(justCheck) return true;
+                    board.validMoves.push_back(move);
                 }
             }
         }
@@ -172,9 +191,9 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
                     move.to = move.from + direction*8 + xDirection;
                 else
                     continue;
-                move.capturedPiece=board.whiteToMove?Piece::BP : Piece::WP;
-                if(board.makeMove(move)) {
-                    board.undoMove();
+                if(!board.GetBit(allPieces,move.to) && move.to==board.enPassantSquare)
+                {
+                    move.capturedPiece=board.whiteToMove?Piece::BP : Piece::WP;
                     if(justCheck) return true;
                     board.validMoves.push_back(move);
                 }
@@ -200,13 +219,13 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
                 move.to = move.from + dx * 8 + dy;
             else
                 continue;
-            move.capturedPiece = board.pieceAt[move.to];
-            if(move.capturedPiece != Piece::None)
-                board.setFlag(move.flag, CAPTURE);
-            if(board.makeMove(move)) {
-                board.undoMove();
+            if(!board.GetBit(friendlyPiece,move.to))
+            {
+                move.capturedPiece = board.pieceAt[move.to];
+                if(move.capturedPiece != Piece::None)
+                    board.setFlag(move.flag, CAPTURE);
                 if(justCheck) return true;
-                board.validMoves.push_back(move);
+                board.validMoves.push_back(move);     
             }
         }
     }
@@ -227,19 +246,22 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
             while(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7) {
                 move.flag = 0;
                 move.to = newRank * 8 + newFile;
-                move.capturedPiece = board.pieceAt[move.to];
-                if(move.capturedPiece != Piece::None)
-                    board.setFlag(move.flag, CAPTURE);
-                if(board.makeMove(move)) {
-                    board.undoMove();
+                if(!board.GetBit(friendlyPiece,move.to))
+                {
+                    move.capturedPiece = board.pieceAt[move.to];
+                    if(move.capturedPiece != Piece::None)
+                        board.setFlag(move.flag, CAPTURE);
+
                     if(justCheck) return true;
                     board.validMoves.push_back(move);
+                    //stop sliding only when some piece is encounterd in the way
+                    if(move.capturedPiece != Piece::None)
+                        break;
+                    newRank += dx;
+                    newFile += dy;
                 }
-                //stop sliding only when some piece is encounterd in the way
-                if(move.capturedPiece != Piece::None)
+                else
                     break;
-                newRank += dx;
-                newFile += dy;
             }
         }
     }
@@ -260,19 +282,22 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
             while(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7) {
                 move.flag = 0;
                 move.to = newRank * 8 + newFile;
-                move.capturedPiece = board.pieceAt[move.to];
-                if(move.capturedPiece != Piece::None)
-                    board.setFlag(move.flag, CAPTURE);
-                if(board.makeMove(move)) {
-                    board.undoMove();
+                if(!board.GetBit(friendlyPiece,move.to))
+                {
+                    move.capturedPiece = board.pieceAt[move.to];
+                    if(move.capturedPiece != Piece::None)
+                        board.setFlag(move.flag, CAPTURE);
                     if(justCheck) return true;
                     board.validMoves.push_back(move);
+
+                    //stop sliding only when some piece is encounterd in the way
+                    if(move.capturedPiece != Piece::None)
+                        break;
+                    newRank += dx;
+                    newFile += dy;
                 }
-                //stop sliding only when some piece is encounterd in the way
-                if(move.capturedPiece != Piece::None)
+                else   
                     break;
-                newRank += dx;
-                newFile += dy;
             }
         }
     }
@@ -293,19 +318,23 @@ bool MoveGenerator::nextValidMoves(Board& board, bool justCheck) {
             while(newRank >= 0 && newRank <= 7 && newFile >= 0 && newFile <= 7) {
                 move.flag = 0;
                 move.to = newRank * 8 + newFile;
-                move.capturedPiece = board.pieceAt[move.to];
-                if(move.capturedPiece != Piece::None)
-                    board.setFlag(move.flag, CAPTURE);
-                if(board.makeMove(move)) {
-                    board.undoMove();
+                if(!board.GetBit(friendlyPiece,move.to))
+                {
+                    move.capturedPiece = board.pieceAt[move.to];
+                    if(move.capturedPiece != Piece::None)
+                        board.setFlag(move.flag, CAPTURE);
+
                     if(justCheck) return true;
                     board.validMoves.push_back(move);
+
+                    //stop sliding only when some piece is encounterd in the way
+                    if(move.capturedPiece != Piece::None)
+                        break;
+                    newRank += dx;
+                    newFile += dy;
                 }
-                //stop sliding only when some piece is encounterd in the way
-                if(move.capturedPiece != Piece::None)
+                else
                     break;
-                newRank += dx;
-                newFile += dy;
             }
         }
     }

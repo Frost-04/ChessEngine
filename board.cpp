@@ -25,6 +25,7 @@ void Board::ResetBoard()
 
     undoStack= std::stack<Undo>();
     validMoves.clear();
+    validMoves.reserve(1000);
 
     enPassantSquare=NO_SQUARE;
 
@@ -61,13 +62,13 @@ void Board::initializePieceTable()
         else if(WK & mask) pieceAt[i]=Piece::WK;
         else if(WQ & mask) pieceAt[i]=Piece::WQ;
         else if(WR & mask) pieceAt[i]=Piece::WR;
-        else if(WK & mask) pieceAt[i]=Piece::WN;
+        else if(WN & mask) pieceAt[i]=Piece::WN;
         else if(WB & mask) pieceAt[i]=Piece::WB;
         else if(BK & mask) pieceAt[i]=Piece::BK;
         else if(BP & mask) pieceAt[i]=Piece::BP;
         else if(BQ & mask) pieceAt[i]=Piece::BQ;
         else if(BR & mask) pieceAt[i]=Piece::BR;
-        else if(BK & mask) pieceAt[i]=Piece::BN;
+        else if(BN & mask) pieceAt[i]=Piece::BN;
         else if(BB & mask) pieceAt[i]=Piece::BB;
         else pieceAt[i]=Piece::None;
     }
@@ -634,8 +635,8 @@ bool Board::moveLegalityCheck(Move move)
 
 bool Board::makeMove(Move move)
 {
-    if(!moveLegalityCheck(move))    //note: also checking legality on make move side
-        return false;
+    // if(!moveLegalityCheck(move))    //note: also checking legality on make move side
+    //     return false;
     
     //saving undo state
     saveUndoState();
@@ -684,10 +685,10 @@ bool Board::makeMove(Move move)
         //handeling enpassant
         else if(hasFlag(move.flag,EN_PASSANT))
         {
-            int offset=whiteToMove?(-8):8;
-
-            ResetBit(BP, move.to+offset);
-            pieceAt[move.to+offset]=Piece::None;
+            int offset = whiteToMove ? (-8) : 8;
+            U64& capturedPawnBB = whiteToMove ? BP : WP;
+            ResetBit(capturedPawnBB, move.to + offset);
+            pieceAt[move.to + offset] = Piece::None;
         }
 
         //handeling CastleKingSide
@@ -734,9 +735,6 @@ bool Board::makeMove(Move move)
         restoreState();
         return false;
     }
-
-    //updating pieceAt table
-
 
     //Updating Castling Rights
     if(whiteToMove)
@@ -795,23 +793,24 @@ bool Board::makeMove(Move move)
     if(hasFlag(move.flag,DOUBLE_PAWN))
         enPassantSquare=whiteToMove?move.to-8:move.to+8;
 
-    //marking if checked
-    if(whiteToMove)
-    {
-        whiteInCheck=0; //clearing own check as once move is made and islegal then own king not in check
-        if(isSquareAttacked(getPiecePosition(BK),1))
-            blackInCheck=1;
-        else
-            blackInCheck=0;
-    }
-    else
-    {
-        blackInCheck=0;
-        if(isSquareAttacked(getPiecePosition(WK),0))
-            whiteInCheck=1;
-        else
-            whiteInCheck=0;
-    }
+    //Note: below is not needed for perft
+    // //marking if checked
+    // if(whiteToMove)
+    // {
+    //     whiteInCheck=0; //clearing own check as once move is made as then own king not in check
+    //     if(isSquareAttacked(getPiecePosition(BK),1))
+    //         blackInCheck=1;
+    //     else
+    //         blackInCheck=0;
+    // }
+    // else
+    // {
+    //     blackInCheck=0;
+    //     if(isSquareAttacked(getPiecePosition(WK),0))
+    //         whiteInCheck=1;
+    //     else
+    //         whiteInCheck=0;
+    // }
 
     //Updating 50 move counter
     if(move.movingPiece == Piece::WP || move.movingPiece==Piece::BP || hasFlag(move.flag,CAPTURE))

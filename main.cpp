@@ -9,9 +9,8 @@ int main()
 {
     Board board;
     board.trackHistory = false;
-    // FenLoader loader;
-    // std::cout<<"TEMP\n";
-    // loader.load(board, "3k4/5ppp/2q5/3p2r1/8/1Q3P2/P4P1P/3R3K w - - 0 1");
+    FenLoader loader;
+    loader.load(board, "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10");
     // Perft::divide(board, 4);
     // return 0;
 
