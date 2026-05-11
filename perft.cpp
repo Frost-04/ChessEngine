@@ -13,7 +13,7 @@ long long Perft::run(Board &board,int depth)
         if(board.makeMove(move))    //only if move succeeds
         {
             nodes+=run(board,depth-1);
-            board.undoMove();
+            board.undoMove(move);
         }
     }
     return nodes;
@@ -28,7 +28,7 @@ void Perft::divide(Board &board, int depth)
     {
         board.makeMove(move);
         long long count = run(board, depth - 1);
-        board.undoMove();
+        board.undoMove(move);
 
         // print move
         char from_file = 'a' + move.from % 8;

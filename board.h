@@ -31,6 +31,7 @@ public:
 
     std::stack<Undo> undoStack;
     std::vector<Move> validMoves;
+    
 
     Board() { ResetBoard(); }   //generator
     void ResetBoard();
@@ -44,8 +45,8 @@ public:
     inline bool hasFlag(U8 flags, U8 flag) { return (flags&flag); }
     inline void setFlag(U8 &flags, U8 flag) { flags=flags|flag; }
     void saveUndoState();
-    void undoMove();
-    void restoreState();
+    void undoMove(const Move &move);
+    void restoreState(const Move &move);
     GameResult hasGameEnded();
     U64 computeInitialHash();
     void updateHash(const Move &move);

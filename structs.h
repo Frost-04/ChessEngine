@@ -30,23 +30,41 @@ struct Move
 
 struct Undo
 {
-    U64 WP, WN, WB, WR, WQ, WK;
-    U64 BP, BN, BB, BR, BQ, BK;
-
+    U64 zorbistHash;
     U8 enPassantSquare;
-    Piece pieceAt[64];
+    U8 fiftyMoveClock;
 
     bool blackInCheck;
     bool whiteInCheck;
-    U8 fiftyMoveClock;
-    int moveCount;
-    bool isInsufficientMaterial;
 
-    bool whiteToMove;
     bool whiteCastleKingSide;
     bool whiteCastleQueenSide;
     bool blackCastleKingSide;
     bool blackCastleQueenSide;
+};
 
-    U64 zorbistHash;
+struct MoveList{
+    Move moveArray[266];
+    int top=-1;
+    Move &operator[](int index)
+    {
+        return moveArray[index];
+    }
+    const Move &operator[](int index) const
+    {
+        return moveArray[index];
+    }
+    void clear()
+    {
+        top=-1;
+    }
+    void push_back(const Move &move)
+    {
+        top++;
+        moveArray[top]=move;
+    }
+    void pop_back()
+    {
+        top--;
+    }
 };

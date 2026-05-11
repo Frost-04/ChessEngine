@@ -6,7 +6,6 @@
 #include <string>
 #include <iostream>
 #include <cstdlib>
-#include <cstring> // std::memcpy
 #include <bit>
 
 void Board::ResetBoard()
@@ -77,30 +76,13 @@ void Board::initializePieceTable()
 void Board::saveUndoState()
 {
     Undo undo;
-    undo.WP = WP;
-    undo.WN = WN;
-    undo.WB = WB;
-    undo.WR = WR;
-    undo.WQ = WQ;
-    undo.WK = WK;
-
-    undo.BP = BP;
-    undo.BN = BN;
-    undo.BB = BB;
-    undo.BR = BR;
-    undo.BQ = BQ;
-    undo.BK = BK;
 
     undo.enPassantSquare=enPassantSquare;
-    std::memcpy(undo.pieceAt, pieceAt, sizeof pieceAt);
 
     undo.blackInCheck=blackInCheck;
     undo.whiteInCheck=whiteInCheck;
-    undo.moveCount=moveCount;
     undo.fiftyMoveClock=fiftyMoveClock;
-    undo.isInsufficientMaterial=isInsufficientMaterial;
 
-    undo.whiteToMove = whiteToMove;
     undo.whiteCastleKingSide = whiteCastleKingSide;
     undo.whiteCastleQueenSide = whiteCastleQueenSide;
     undo.blackCastleKingSide = blackCastleKingSide;
@@ -111,83 +93,137 @@ void Board::saveUndoState()
     undoStack.push(undo);
 }
 
-void Board::undoMove()
+void Board::undoMove(const Move &move)
 {
     if(undoStack.empty())
         return;
     Undo undo = undoStack.top();
     undoStack.pop();
-    WP = undo.WP;
-    WN = undo.WN;
-    WB = undo.WB;
-    WR = undo.WR;
-    WQ = undo.WQ;
-    WK = undo.WK;
-
-    blackInCheck=undo.blackInCheck;
-    whiteInCheck=undo.whiteInCheck;
-    moveCount=undo.moveCount;
-    fiftyMoveClock=undo.fiftyMoveClock;
-    isInsufficientMaterial=undo.isInsufficientMaterial;
-
-    BP = undo.BP;
-    BN = undo.BN;
-    BB = undo.BB;
-    BR = undo.BR;
-    BQ = undo.BQ;
-    BK = undo.BK;
-
-    enPassantSquare=undo.enPassantSquare;
-    std::memcpy(pieceAt, undo.pieceAt, sizeof pieceAt);
-
-    whiteToMove = undo.whiteToMove;
-    whiteCastleKingSide = undo.whiteCastleKingSide;
+    enPassantSquare   = undo.enPassantSquare;
+    fiftyMoveClock    = undo.fiftyMoveClock;
+    whiteCastleKingSide  = undo.whiteCastleKingSide;
     whiteCastleQueenSide = undo.whiteCastleQueenSide;
-    blackCastleKingSide = undo.blackCastleKingSide;
+    blackCastleKingSide  = undo.blackCastleKingSide;
     blackCastleQueenSide = undo.blackCastleQueenSide;
 
-    if(trackHistory)
-        positionHistory[zorbistHash]--;
+    // 2. Flip side back (undo happens before the flip in makeMove)
+    whiteToMove = !whiteToMove;
+    if (!whiteToMove) moveCount--;   // black's move is being undone
 
-    zorbistHash=undo.zorbistHash;
+    // 3. Move the piece back
+    U64& movingBB = getPieceBB(move.movingPiece);
+    ResetBit(movingBB, move.to);
+    SetBit(movingBB,   move.from);
+    pieceAt[move.to]   = Piece::None;
+    pieceAt[move.from] = move.movingPiece;
+
+    // 4. Undo promotion (replace promoted piece with pawn)
+    if (hasFlag(move.flag, PROMOTION)) {
+        ResetBit(getPieceBB(move.promotionPiece), move.to);
+        // movingBB (the pawn BB) was already set to from above — correct
+    }
+
+    // 5. Restore captured piece
+    if (hasFlag(move.flag, CAPTURE) && !hasFlag(move.flag, EN_PASSANT)) {
+        SetBit(getPieceBB(move.capturedPiece), move.to);
+        pieceAt[move.to] = move.capturedPiece;
+    }
+
+    // 6. Undo en passant capture
+    if (hasFlag(move.flag, EN_PASSANT)) {
+        int capturedSq = whiteToMove ? (move.to - 8) : (move.to + 8);
+        U64& capturedPawnBB = whiteToMove ? BP : WP;
+        Piece capturedPawn  = whiteToMove ? Piece::BP : Piece::WP;
+        SetBit(capturedPawnBB, capturedSq);
+        pieceAt[capturedSq] = capturedPawn;
+    }
+
+    // 7. Undo castling rook move
+    if (hasFlag(move.flag, CASTLE_KING)) {
+        if (whiteToMove) {
+            ResetBit(WR, IDX_F1); SetBit(WR, IDX_H1);
+            pieceAt[IDX_F1] = Piece::None; pieceAt[IDX_H1] = Piece::WR;
+        } else {
+            ResetBit(BR, IDX_F8); SetBit(BR, IDX_H8);
+            pieceAt[IDX_F8] = Piece::None; pieceAt[IDX_H8] = Piece::BR;
+        }
+    }
+    if (hasFlag(move.flag, CASTLE_QUEEN)) {
+        if (whiteToMove) {
+            ResetBit(WR, IDX_D1); SetBit(WR, IDX_A1);
+            pieceAt[IDX_D1] = Piece::None; pieceAt[IDX_A1] = Piece::WR;
+        } else {
+            ResetBit(BR, IDX_D8); SetBit(BR, IDX_A8);
+            pieceAt[IDX_D8] = Piece::None; pieceAt[IDX_A8] = Piece::BR;
+        }
+    }
+
+    // 8. Restore hash
+    if (trackHistory) positionHistory[zorbistHash]--;
+    zorbistHash = undo.zorbistHash;
 
 }
-void Board::restoreState()  //same as undoMove but does not touch positionHistory
+void Board::restoreState(const Move &move)  //same as undoMove but does not touch positionHistory
 {
-    if(undoStack.empty())
+   if(undoStack.empty())
         return;
     Undo undo = undoStack.top();
     undoStack.pop();
-    WP = undo.WP;
-    WN = undo.WN;
-    WB = undo.WB;
-    WR = undo.WR;
-    WQ = undo.WQ;
-    WK = undo.WK;
-
-    blackInCheck=undo.blackInCheck;
-    whiteInCheck=undo.whiteInCheck;
-    moveCount=undo.moveCount;
-    fiftyMoveClock=undo.fiftyMoveClock;
-    isInsufficientMaterial=undo.isInsufficientMaterial;
-
-    BP = undo.BP;
-    BN = undo.BN;
-    BB = undo.BB;
-    BR = undo.BR;
-    BQ = undo.BQ;
-    BK = undo.BK;
-
-    enPassantSquare=undo.enPassantSquare;
-    std::memcpy(pieceAt, undo.pieceAt, sizeof pieceAt);
-
-    whiteToMove = undo.whiteToMove;
-    whiteCastleKingSide = undo.whiteCastleKingSide;
+     enPassantSquare   = undo.enPassantSquare;
+    fiftyMoveClock    = undo.fiftyMoveClock;
+    whiteCastleKingSide  = undo.whiteCastleKingSide;
     whiteCastleQueenSide = undo.whiteCastleQueenSide;
-    blackCastleKingSide = undo.blackCastleKingSide;
+    blackCastleKingSide  = undo.blackCastleKingSide;
     blackCastleQueenSide = undo.blackCastleQueenSide;
-    zorbistHash=undo.zorbistHash;
 
+    // 3. Move the piece back
+    U64& movingBB = getPieceBB(move.movingPiece);
+    ResetBit(movingBB, move.to);
+    SetBit(movingBB,   move.from);
+    pieceAt[move.to]   = Piece::None;
+    pieceAt[move.from] = move.movingPiece;
+
+    // 4. Undo promotion (replace promoted piece with pawn)
+    if (hasFlag(move.flag, PROMOTION)) {
+        ResetBit(getPieceBB(move.promotionPiece), move.to);
+        // movingBB (the pawn BB) was already set to from above — correct
+    }
+
+    // 5. Restore captured piece
+    if (hasFlag(move.flag, CAPTURE) && !hasFlag(move.flag, EN_PASSANT)) {
+        SetBit(getPieceBB(move.capturedPiece), move.to);
+        pieceAt[move.to] = move.capturedPiece;
+    }
+
+    // 6. Undo en passant capture
+    if (hasFlag(move.flag, EN_PASSANT)) {
+        int capturedSq = whiteToMove ? (move.to - 8) : (move.to + 8);
+        U64& capturedPawnBB = whiteToMove ? BP : WP;
+        Piece capturedPawn  = whiteToMove ? Piece::BP : Piece::WP;
+        SetBit(capturedPawnBB, capturedSq);
+        pieceAt[capturedSq] = capturedPawn;
+    }
+
+    // 7. Undo castling rook move
+    if (hasFlag(move.flag, CASTLE_KING)) {
+        if (whiteToMove) {
+            ResetBit(WR, IDX_F1); SetBit(WR, IDX_H1);
+            pieceAt[IDX_F1] = Piece::None; pieceAt[IDX_H1] = Piece::WR;
+        } else {
+            ResetBit(BR, IDX_F8); SetBit(BR, IDX_H8);
+            pieceAt[IDX_F8] = Piece::None; pieceAt[IDX_H8] = Piece::BR;
+        }
+    }
+    if (hasFlag(move.flag, CASTLE_QUEEN)) {
+        if (whiteToMove) {
+            ResetBit(WR, IDX_D1); SetBit(WR, IDX_A1);
+            pieceAt[IDX_D1] = Piece::None; pieceAt[IDX_A1] = Piece::WR;
+        } else {
+            ResetBit(BR, IDX_D8); SetBit(BR, IDX_A8);
+            pieceAt[IDX_D8] = Piece::None; pieceAt[IDX_A8] = Piece::BR;
+        }
+    }
+    zorbistHash = undo.zorbistHash;
 }
 
 GameResult Board::hasGameEnded()    //call this after the side to move has been flipped
@@ -732,7 +768,7 @@ bool Board::makeMove(Move move)
     //checking if king in check after the move
     if((whiteToMove && isSquareAttacked(getPiecePosition(WK),0)) || (!whiteToMove && isSquareAttacked(getPiecePosition(BK),1)))
     {
-        restoreState();
+        restoreState(move);
         return false;
     }
 
@@ -823,7 +859,8 @@ bool Board::makeMove(Move move)
         moveCount++;
 
     //updating zorbist hash
-    updateHash(move);
+    if(trackHistory)
+        updateHash(move);
 
     //Flipping side to move
     whiteToMove=!whiteToMove;
