@@ -228,7 +228,6 @@ void FenLoader::applyToBoard(Board& board, const ParsedFen& parsed) {
     board.isInsufficientMaterial = false;
 
     board.undoStack = std::stack<Undo>();
-    board.validMoves.clear();
 
     // Refresh check state after loading.
     int whiteKingSq = board.getPiecePosition(board.WK);

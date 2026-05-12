@@ -29,9 +29,7 @@ public:
     std::unordered_map<U64,int> positionHistory;
     bool trackHistory; //just for 
 
-    std::stack<Undo> undoStack;
-    std::vector<Move> validMoves;
-    
+    std::stack<Undo> undoStack;    
 
     Board() { ResetBoard(); }   //generator
     void ResetBoard();

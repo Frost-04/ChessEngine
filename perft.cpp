@@ -6,8 +6,9 @@ long long Perft::run(Board &board,int depth)
     if(depth==0)
         return 1;
     long long nodes=0;
-    MoveGenerator::nextValidMoves(board);
-    std::vector<Move> moves=board.validMoves;
+    MoveList moves;
+    MoveGenerator::nextValidMoves(board,moves);
+
     for(auto &move: moves)
     {
         if(board.makeMove(move))    //only if move succeeds
@@ -20,10 +21,9 @@ long long Perft::run(Board &board,int depth)
 }
 void Perft::divide(Board &board, int depth)
 {
-    MoveGenerator::nextValidMoves(board);
-    std::vector<Move> moves = board.validMoves;
-    
-    long long total = 0;
+    MoveList moves;
+    MoveGenerator::nextValidMoves(board,moves);
+        long long total = 0;
     for(auto &move : moves)
     {
         board.makeMove(move);

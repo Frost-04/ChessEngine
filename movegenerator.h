@@ -3,6 +3,6 @@
 
 class MoveGenerator {
 public:
-    static bool nextValidMoves(Board& board, bool justCheck = false);
+    static bool nextValidMoves(Board& board, MoveList &moves);
     static bool hasValidMoves(Board& board);
 };

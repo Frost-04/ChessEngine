@@ -23,8 +23,6 @@ void Board::ResetBoard()
     isInsufficientMaterial=0;
 
     undoStack= std::stack<Undo>();
-    validMoves.clear();
-    validMoves.reserve(1000);
 
     enPassantSquare=NO_SQUARE;
 
@@ -228,7 +226,7 @@ void Board::restoreState(const Move &move)  //same as undoMove but does not touc
 
 GameResult Board::hasGameEnded()    //call this after the side to move has been flipped
 {
-    if(!MoveGenerator::nextValidMoves(*this, true))
+    if(!MoveGenerator::hasValidMoves(*this))
     {
         if(!whiteToMove && blackInCheck)
             return GameResult::BlackCheckmate;
@@ -678,17 +676,20 @@ bool Board::makeMove(Move move)
     saveUndoState();
 
     //Zorbist: Removing old castling rights
-    if(whiteCastleKingSide)
-        zorbistHash^=ZORBIST.castling[0];
-    if(whiteCastleQueenSide)
-        zorbistHash^=ZORBIST.castling[1];
-    if(blackCastleKingSide)
-        zorbistHash^=ZORBIST.castling[2];
-    if(blackCastleQueenSide)
-        zorbistHash^=ZORBIST.castling[3];
-    //remove old enpassant square
-    if (enPassantSquare != NO_SQUARE)
-        zorbistHash ^= ZORBIST.enPassantFile[enPassantSquare % 8];
+    if(trackHistory)
+    {
+        if(whiteCastleKingSide)
+            zorbistHash^=ZORBIST.castling[0];
+        if(whiteCastleQueenSide)
+            zorbistHash^=ZORBIST.castling[1];
+        if(blackCastleKingSide)
+            zorbistHash^=ZORBIST.castling[2];
+        if(blackCastleQueenSide)
+            zorbistHash^=ZORBIST.castling[3];
+        //remove old enpassant square
+        if (enPassantSquare != NO_SQUARE)
+            zorbistHash ^= ZORBIST.enPassantFile[enPassantSquare % 8];
+    }
 
     // Fetching BitBoards
     U64& movingPieceBB = getPieceBB(move.movingPiece);

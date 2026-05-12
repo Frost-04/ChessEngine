@@ -45,7 +45,27 @@ struct Undo
 
 struct MoveList{
     Move moveArray[266];
-    int top=-1;
+    int count=0;
+    MoveList()
+    {
+        count=0;
+    }
+    Move *begin()
+    {
+        return moveArray;
+    }
+    Move *end()
+    {
+        return moveArray + count;
+    }
+    const Move *begin() const
+    {
+        return moveArray;
+    }
+    const Move *end() const
+    {
+        return moveArray + count;
+    }
     Move &operator[](int index)
     {
         return moveArray[index];
@@ -56,15 +76,18 @@ struct MoveList{
     }
     void clear()
     {
-        top=-1;
+        count=0;
     }
     void push_back(const Move &move)
     {
-        top++;
-        moveArray[top]=move;
+        moveArray[count++]=move;
     }
     void pop_back()
     {
-        top--;
+        count--;
+    }
+    bool empty()
+    {
+        return count<=0;
     }
 };
