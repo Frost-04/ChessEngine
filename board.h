@@ -37,7 +37,7 @@ public:
     inline U64 GetWhitePieces() { return (WP|WR|WN|WB|WQ|WK); }
     inline U64 GetBlackPieces() { return (BP|BR|BN|BB|BQ|BK); }
     inline U64 GetAllPieces() { return GetWhitePieces() | GetBlackPieces(); }
-    inline bool GetBit(U64 piece, int i) { return i>=0 && i < 64 && ((piece >> i) & 1ULL); }
+    inline bool GetBit(const U64 &piece, int i) { return (piece >> i) & 1ULL; }    //removed safety net from here i.e. checking if i<0 or i>63 is removed, it can affect legaliaty check and other places
     inline void SetBit(U64 &piece, int i) { piece|=(1ULL<<i); }
     inline void ResetBit(U64 &piece, int i) { piece&= ~(1ULL << i); }
     inline bool hasFlag(U8 flags, U8 flag) { return (flags&flag); }

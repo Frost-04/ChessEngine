@@ -24,13 +24,6 @@ bool MoveGenerator::nextValidMoves(Board& board, MoveList &moves) {
     U64 friendlyPiece=(board.whiteToMove)?board.GetWhitePieces():board.GetBlackPieces();
     U64 opponentPiece=(board.whiteToMove)?board.GetBlackPieces():board.GetWhitePieces();
 
-    //caching positions
-    std::vector<int> pawnPositions = board.getPieceAllPosition(pawn);
-    std::vector<int> knightPositions = board.getPieceAllPosition(knight);
-    std::vector<int> queenPositions = board.getPieceAllPosition(queen);
-    std::vector<int> rookPositions = board.getPieceAllPosition(rook);
-    std::vector<int> bishopPositions = board.getPieceAllPosition(bishop);
-
     //caching castle rules
     bool castleKing=(board.whiteToMove)?board.whiteCastleKingSide:board.blackCastleKingSide;
     bool castleQueen=(board.whiteToMove)?board.whiteCastleQueenSide:board.blackCastleQueenSide;
@@ -99,7 +92,10 @@ bool MoveGenerator::nextValidMoves(Board& board, MoveList &moves) {
     move.movingPiece = pawn;
     int direction = board.whiteToMove ? 1 : -1;
 
-    for(auto const &currPosition : pawnPositions) {
+    U64 pawnBBIterator=pawnBB;
+    while (pawnBBIterator)
+    {
+        int currPosition = __builtin_ctzll(pawnBBIterator); pawnBBIterator &= pawnBBIterator - 1;
         move.from = currPosition;
 
         // Single forward
@@ -193,7 +189,10 @@ bool MoveGenerator::nextValidMoves(Board& board, MoveList &moves) {
     move.movingPiece = knight;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : knightPositions) {
+    U64 knightBBIterator=knightBB;
+    while (knightBBIterator)
+    {
+        int currPosition = __builtin_ctzll(knightBBIterator); knightBBIterator &= knightBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;
@@ -221,7 +220,10 @@ bool MoveGenerator::nextValidMoves(Board& board, MoveList &moves) {
     move.movingPiece = bishop;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : bishopPositions) {
+    U64 bishopBBIterator=bishopBB;
+    while (bishopBBIterator)
+    {
+        int currPosition = __builtin_ctzll(bishopBBIterator); bishopBBIterator &= bishopBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;
@@ -256,7 +258,10 @@ bool MoveGenerator::nextValidMoves(Board& board, MoveList &moves) {
     move.movingPiece = rook;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : rookPositions) {
+    U64 rookBBIterator=rookBB;
+    while (rookBBIterator)
+    {
+        int currPosition = __builtin_ctzll(rookBBIterator); rookBBIterator &= rookBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;
@@ -291,7 +296,10 @@ bool MoveGenerator::nextValidMoves(Board& board, MoveList &moves) {
     move.movingPiece = queen;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : queenPositions) {
+    U64 queenBBIterator=queenBB;
+    while (queenBBIterator)
+    {
+        int currPosition = __builtin_ctzll(queenBBIterator); queenBBIterator &= queenBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;
@@ -345,13 +353,6 @@ bool MoveGenerator::hasValidMoves(Board& board) {
     U64 allPieces=board.GetAllPieces();
     U64 friendlyPiece=(board.whiteToMove)?board.GetWhitePieces():board.GetBlackPieces();
     U64 opponentPiece=(board.whiteToMove)?board.GetBlackPieces():board.GetWhitePieces();
-
-    //caching positions
-    std::vector<int> pawnPositions = board.getPieceAllPosition(pawn);
-    std::vector<int> knightPositions = board.getPieceAllPosition(knight);
-    std::vector<int> queenPositions = board.getPieceAllPosition(queen);
-    std::vector<int> rookPositions = board.getPieceAllPosition(rook);
-    std::vector<int> bishopPositions = board.getPieceAllPosition(bishop);
 
     //caching castle rules
     bool castleKing=(board.whiteToMove)?board.whiteCastleKingSide:board.blackCastleKingSide;
@@ -420,7 +421,10 @@ bool MoveGenerator::hasValidMoves(Board& board) {
     move.movingPiece = pawn;
     int direction = board.whiteToMove ? 1 : -1;
 
-    for(auto const &currPosition : pawnPositions) {
+    U64 pawnBBIterator=pawnBB;
+    while (pawnBBIterator)
+    {
+        int currPosition = __builtin_ctzll(pawnBBIterator); pawnBBIterator &= pawnBBIterator - 1;
         move.from = currPosition;
 
         // Single forward
@@ -518,7 +522,10 @@ bool MoveGenerator::hasValidMoves(Board& board) {
     move.movingPiece = knight;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : knightPositions) {
+    U64 knightBBIterator=knightBB;
+    while (knightBBIterator)
+    {
+        int currPosition = __builtin_ctzll(knightBBIterator); knightBBIterator &= knightBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;
@@ -546,7 +553,10 @@ bool MoveGenerator::hasValidMoves(Board& board) {
     move.movingPiece = bishop;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : bishopPositions) {
+    U64 bishopBBIterator=bishopBB;
+    while (bishopBBIterator)
+    {
+        int currPosition = __builtin_ctzll(bishopBBIterator); bishopBBIterator &= bishopBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;
@@ -581,7 +591,10 @@ bool MoveGenerator::hasValidMoves(Board& board) {
     move.movingPiece = rook;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : rookPositions) {
+    U64 rookBBIterator=rookBB;
+    while (rookBBIterator)
+    {
+        int currPosition = __builtin_ctzll(rookBBIterator); rookBBIterator &= rookBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;
@@ -616,7 +629,10 @@ bool MoveGenerator::hasValidMoves(Board& board) {
     move.movingPiece = queen;
     move.flag=0;
     move.promotionPiece = Piece::None;
-    for(auto currPosition : queenPositions) {
+    U64 queenBBIterator=queenBB;
+    while (bishopBBIterator)
+    {
+        int currPosition = __builtin_ctzll(queenBBIterator); queenBBIterator &= queenBBIterator - 1;
         move.from = currPosition;
         int rank = move.from / 8;
         int file = move.from % 8;

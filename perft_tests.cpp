@@ -53,6 +53,7 @@ static int parseMaxDepth(int argc, char** argv) {
 
 static bool runPerftTest(const PerftTest& test, int maxDepth, double& elapsedSeconds) {
     Board board;
+    board.trackHistory=0;
     FenLoader loader;
     std::string error;
 
