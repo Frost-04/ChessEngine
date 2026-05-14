@@ -630,7 +630,7 @@ bool MoveGenerator::hasValidMoves(Board& board) {
     move.flag=0;
     move.promotionPiece = Piece::None;
     U64 queenBBIterator=queenBB;
-    while (bishopBBIterator)
+    while (queenBBIterator)
     {
         int currPosition = __builtin_ctzll(queenBBIterator); queenBBIterator &= queenBBIterator - 1;
         move.from = currPosition;

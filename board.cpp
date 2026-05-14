@@ -831,7 +831,7 @@ bool Board::makeMove(Move move)
         enPassantSquare=whiteToMove?move.to-8:move.to+8;
 
     //Note: below is not needed for perft
-    // //marking if checked
+    //marking if checked
     // if(whiteToMove)
     // {
     //     whiteInCheck=0; //clearing own check as once move is made as then own king not in check
