@@ -4,10 +4,13 @@
 #include "movegenerator.h"
 #include <iostream>
 #include <string>
+#include <chrono>
+#include <iomanip>
 
+//using anon namespace so that these functions are localized to this main.cpp only 
 namespace {
 
-static char pieceSanLetter(Piece piece) {
+char pieceSanLetter(Piece piece) {
     switch (piece) {
         case Piece::WK:
         case Piece::BK:
@@ -29,10 +32,10 @@ static char pieceSanLetter(Piece piece) {
     }
 }
 
-static char fileChar(int sq) { return static_cast<char>('a' + (sq % 8)); }
-static char rankChar(int sq) { return static_cast<char>('1' + (sq / 8)); }
+char fileChar(int sq) { return static_cast<char>('a' + (sq % 8)); }
+char rankChar(int sq) { return static_cast<char>('1' + (sq / 8)); }
 
-static bool isLegalMove(Board& board, const Move& move) {
+bool isLegalMove(Board& board, const Move& move) {
     if (!board.makeMove(move)) {
         return false;
     }
@@ -40,12 +43,12 @@ static bool isLegalMove(Board& board, const Move& move) {
     return true;
 }
 
-static void appendSquare(std::string& out, int sq) {
+void appendSquare(std::string& out, int sq) {
     out.push_back(fileChar(sq));
     out.push_back(rankChar(sq));
 }
 
-static std::string moveToSan(Board& board, const Move& move) {
+std::string moveToSan(Board& board, const Move& move) {
     if (move.flag & CASTLE_KING) {
         return "O-O";
     }
@@ -144,7 +147,7 @@ static std::string moveToSan(Board& board, const Move& move) {
     return san;
 }
 
-static bool readDepth(int& depth) {
+bool readDepth(int& depth) {
     std::string line;
     while (true) {
         std::cout << "Enter search depth: ";
@@ -165,7 +168,7 @@ static bool readDepth(int& depth) {
     }
 }
 
-static bool isQuitCommand(const std::string& text) {
+bool isQuitCommand(const std::string& text) {
     if (text == "quit" || text == "exit") {
         return true;
     }
@@ -175,6 +178,25 @@ static bool isQuitCommand(const std::string& text) {
     return false;
 }
 
+bool readSide(bool& playAsWhite) {
+    std::string line;
+    while (true) {
+        std::cout << "Play as (w)hite or (b)lack? ";
+        if (!std::getline(std::cin, line)) return false;
+        if (line == "w" || line == "W" || line == "white" || line == "White") {
+            playAsWhite = true;
+            return true;
+        }
+        if (line == "b" || line == "B" || line == "black" || line == "Black") {
+            playAsWhite = false;
+            return true;
+        }
+        if (line == "q" || line == "quit") return false;
+        std::cout << "Please enter 'w' or 'b'.\n";
+    }
+}
+
+
 } // namespace
 
 int main()
@@ -182,33 +204,47 @@ int main()
     Board board;
     Search search;
 
+    double totalMoveTimeMs = 0.0;
+    int timedMoveCount = 0;
+
     int depth = 0;
     if (!readDepth(depth)) {
         return 0;
     }
+
+    bool playerIsWhite = true;
+    if (!readSide(playerIsWhite)) {
+        return 0;
+    }
+
+    // If player chose black, computer (white) moves first.
+    // The loop will handle that automatically because board starts with whiteToMove.
 
     while (true) {
         GameResult result = board.hasGameEnded();
         if (result != GameResult::Ongoing) {
             board.printBoard();
             std::cout << "Game over: " << static_cast<int>(result) << "\n";
+            if (timedMoveCount > 0) {
+                double average = totalMoveTimeMs / timedMoveCount;
+                std::cout << std::fixed << std::setprecision(2);
+                std::cout << "Total timed moves: " << timedMoveCount << "\n";
+                std::cout << "Average move time: " << average << " ms\n";
+            }
             break;
         }
 
         board.printBoard();
 
-        if (board.whiteToMove) {
+        if (board.whiteToMove == playerIsWhite) {
+            // ---------- Player's turn ----------
             std::string input;
+            auto moveStart = std::chrono::high_resolution_clock::now();
+
             std::cout << "Your move (e4, Nf3, O-O). Type 'quit' to exit: ";
-            if (!std::getline(std::cin, input)) {
-                break;
-            }
-            if (input.empty()) {
-                continue;
-            }
-            if (isQuitCommand(input)) {
-                break;
-            }
+            if (!std::getline(std::cin, input)) break;
+            if (input.empty()) continue;
+            if (isQuitCommand(input)) break;
 
             Move userMove{};
             std::string error;
@@ -220,17 +256,37 @@ int main()
                 std::cout << "Illegal move.\n";
                 continue;
             }
-            continue;
-        }
 
-        auto res = search.bestMove(board, depth);
-        std::string engineMove = moveToSan(board, res.bestMove);
-        int scoreForWhite = board.whiteToMove ? res.score : -res.score;
-        std::cout << "\x1b[32m" << "Engine: " << engineMove << "  score: " << scoreForWhite << "\x1b[0m" << "\n";
+            auto moveEnd = std::chrono::high_resolution_clock::now();
+            double moveTime = std::chrono::duration<double, std::milli>(moveEnd - moveStart).count();
+            totalMoveTimeMs += moveTime;
+            timedMoveCount++;
+            std::cout << std::fixed << std::setprecision(2);
+            std::cout << "Time taken: " << moveTime << " ms\n";
+        } else {
+            // ---------- Engine's turn ----------
+            auto moveStart = std::chrono::high_resolution_clock::now();
 
-        if (!board.makeMove(res.bestMove)) {
-            std::cout << "Engine move failed.\n";
-            break;
+            auto res = search.bestMove(board, depth);
+
+            auto moveEnd = std::chrono::high_resolution_clock::now();
+            double moveTime = std::chrono::duration<double, std::milli>(moveEnd - moveStart).count();
+            totalMoveTimeMs += moveTime;
+            timedMoveCount++;
+
+            std::string engineMove = moveToSan(board, res.bestMove);
+            int scoreForWhite = board.whiteToMove ? res.score : -res.score;
+            std::cout << std::fixed << std::setprecision(2);
+            std::cout << "\x1b[32m"
+                      << "Engine: " << engineMove
+                      << "  score: " << scoreForWhite
+                      << "  time: " << moveTime << " ms"
+                      << "\x1b[0m\n";
+
+            if (!board.makeMove(res.bestMove)) {
+                std::cout << "Engine move failed.\n";
+                break;
+            }
         }
     }
 
