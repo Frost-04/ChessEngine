@@ -45,8 +45,8 @@ void Board::ResetBoard()
 
     zorbistHash=computeInitialHash();
 
-    positionHistory.clear();
-    positionHistory[zorbistHash]++;
+    // positionHistory.clear();
+    // positionHistory[zorbistHash]++;
     trackHistory=1;
 }
 
@@ -157,7 +157,7 @@ void Board::undoMove(const Move &move)
     }
 
     // 8. Restore hash
-    if (trackHistory) positionHistory[zorbistHash]--;
+    // if (trackHistory) positionHistory[zorbistHash]--;
     zorbistHash = undo.zorbistHash;
 
 }
@@ -240,12 +240,12 @@ GameResult Board::hasGameEnded()    //call this after the side to move has been 
         return GameResult::Draw50Move;
 
     //3 fold repetition
-    if(trackHistory)
-    {
-        auto it=positionHistory.find(zorbistHash);
-        if(it!=positionHistory.end() && it->second>=3)
-            return GameResult::DrawThreefoldRepetition;
-    }
+    // if(trackHistory)
+    // {
+    //     auto it=positionHistory.find(zorbistHash);
+    //     if(it!=positionHistory.end() && it->second>=3)
+    //         return GameResult::DrawThreefoldRepetition;
+    // }
     //calculating insufficient material
     if(WQ==0 && WR==0 && WP==0 && BQ==0 && BR==0 && BP==0)
     {
@@ -830,7 +830,7 @@ bool Board::makeMove(Move move)
     if(hasFlag(move.flag,DOUBLE_PAWN))
         enPassantSquare=whiteToMove?move.to-8:move.to+8;
 
-    //Note: below is not needed for perft
+    //Note: below is not needed for perft and also for evaluating score, we are not actually using isKingInCheck, we are not evaluating checkmate
     //marking if checked
     // if(whiteToMove)
     // {
@@ -867,8 +867,8 @@ bool Board::makeMove(Move move)
     whiteToMove=!whiteToMove;
 
     //adding position to position history
-    if(trackHistory)
-        positionHistory[zorbistHash]++;
+    // if(trackHistory)
+    //     positionHistory[zorbistHash]++;
 
     return true;
 

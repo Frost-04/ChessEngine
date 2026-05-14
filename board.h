@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <stack>
 #include <vector>
-#include <unordered_map>
+//#include <unordered_map>
 class Board {
 public:
     U64 WP, WN, WB, WR, WQ, WK;
@@ -26,7 +26,7 @@ public:
     bool isInsufficientMaterial;
 
     U64 zorbistHash;
-    std::unordered_map<U64,int> positionHistory;
+    //std::unordered_map<U64,int> positionHistory;
     bool trackHistory; //just for 
 
     std::stack<Undo> undoStack;    

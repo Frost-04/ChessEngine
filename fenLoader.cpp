@@ -240,6 +240,6 @@ void FenLoader::applyToBoard(Board& board, const ParsedFen& parsed) {
     }
     //adding zorbist things
     board.zorbistHash = board.computeInitialHash();
-    board.positionHistory.clear();
-    board.positionHistory[board.zorbistHash]++;
+    // board.positionHistory.clear();
+    // board.positionHistory[board.zorbistHash]++;
 }

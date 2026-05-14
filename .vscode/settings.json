@@ -1,4 +1,4 @@
 {
-    "C_Cpp.default.compilerPath": "C:/mysys64/ucrt64/g++.exe",
+    "C_Cpp.default.compilerPath": "C:/MinGW/bin/g++.exe",
     "C_Cpp.default.cppStandard": "c++20"
 }

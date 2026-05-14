@@ -9,7 +9,6 @@ struct SearchResult {
     long long nodes;
 };
 
-// search.h additions
 class Search {
 public:
     long long nodes;
@@ -23,7 +22,7 @@ private:
     int historySize;
 
     int  negamax(Board& board, int depth, int alpha, int beta, int ply);
-    int  quiesce(Board& board, int alpha, int beta);
-    bool isRepetition(U64 hash) const;
+    int  quiesce(Board& board, int alpha, int beta, int ply);
+    bool isRepetition(U64 hash, int maxPlies) const;
     
 };
