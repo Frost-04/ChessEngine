@@ -1,4 +1,11 @@
-main.exe
-.vscode/
-codescrape/
-CODEBASE_SUMMARY.md
+# Ignore everything by default.
+*
+
+# Keep directories traversable so .h/.cpp files can still be matched.
+!*/
+
+# Allow source files anywhere in the tree.
+!*.h
+!*.cpp
+!**/*.h
+!**/*.cpp
